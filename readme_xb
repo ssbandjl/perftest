@@ -1,0 +1,61 @@
+
+
+README
+ib_send_bw
+ib_write_bw
+ib_write_bw_SOURCES = src/write_bw.c -> main
+    user_param.verb    = WRITE; -> -> VerbType -> 为 write_lat 测试添加 write-with-immediate 动词选项， write-with-immediate 动词通过 `--write_with_imm` 选项启用。 接收器将发布将由 write-with-imm 操作消耗的recv wqes。 对于write_lat测试，接收器将轮询recv完成情况，而不是轮询接收缓冲区
+    ctx_find_dev
+    ctx_open_device
+    verify_params_with_device_context
+    check_link
+    create_comm_struct
+    establish_connection
+    exchange_versions
+    check_version_compatibility
+    check_sys_data
+    create_rdma_cm_connection
+    or ctx_init
+        ...
+        modify_qp_to_init -> ctx_modify_qp_to_init
+            IBV_QPS_INIT
+            ibv_modify_qp
+    set_up_connection
+    ctx_print_test_info
+    ctx_connect
+        ctx_modify_qp_to_rtr
+        ctx_modify_qp_to_rts
+        ibv_create_ah
+        ibv_query_qp
+    ctx_print_pingpong_data
+    ctx_hand_shake
+    xchg_bw_reports
+    print_full_bw_report
+    ctx_set_send_wqes
+    run_iter_bw
+    print_report_bw
+    run_iter_bw_infinitely
+
+
+
+write_lat.c -> int main(int argc, char *argv[])
+    ctx_find_dev
+    ctx_open_device
+    verify_params_with_device_context
+    check_link
+    create_comm_struct
+    establish_connection
+    exchange_versions
+    check_version_compatibility
+    check_sys_data
+    create_rdma_cm_connection
+    or ctx_init
+    set_up_connection
+    if (user_param.verb == WRITE_IMM)
+    or run_iter_lat_write
+        while (scnt < user_param->iters || ccnt < user_param->iters || rcnt < user_param->iters
+            post_send_method(ctx, 0, user_param)
+            ibv_poll_cq(ctx->send_cq, 1, &wc)
+            
+
+
