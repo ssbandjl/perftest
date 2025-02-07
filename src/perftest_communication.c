@@ -999,6 +999,12 @@ int rdma_client_connect(struct pingpong_context *ctx,struct perftest_parameters 
 		}
 	}
 
+	if (rdma_set_option(ctx->cm_id, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT,
+			    &user_param->qp_timeout, sizeof(uint8_t))) {
+		fprintf(stderr, " Set RDMA-CM Ack timeout option failed: %d\n", event->event);
+		return FAILURE;
+	}
+
 	while (1) {
 
 		if (num_of_retry <= 0) {
@@ -1232,6 +1238,12 @@ int rdma_server_connect(struct pingpong_context *ctx,
 		}
 	}
 
+	if (rdma_set_option(ctx->cm_id, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT,
+			    &user_param->qp_timeout, sizeof(uint8_t))) {
+		fprintf(stderr, " Set RDMA-CM Ack timeout option failed: %d\n", event->event);
+		return FAILURE;
+	}
+
 	if (rdma_accept(ctx->cm_id, &conn_param)) {
 		fprintf(stderr, "Function rdma_accept failed\n");
 		return 1;
@@ -1279,6 +1291,7 @@ int create_comm_struct(struct perftest_comm *comm,
 	comm->rdma_params->output      		= user_param->output;
 	comm->rdma_params->report_per_port 	= user_param->report_per_port;
 	comm->rdma_params->retry_count		= user_param->retry_count;
+	comm->rdma_params->qp_timeout		= user_param->qp_timeout;
 	comm->rdma_params->mr_per_qp		= user_param->mr_per_qp;
 	comm->rdma_params->dlid			= user_param->dlid;
 	comm->rdma_params->cycle_buffer         = user_param->cycle_buffer;
@@ -2316,6 +2329,16 @@ int rdma_cm_address_handler(struct pingpong_context *ctx,
 		}
 	}
 
+	if (user_param->connection_type == RC) {
+		rc = rdma_set_option(cma_id, RDMA_OPTION_ID, RDMA_OPTION_ID_ACK_TIMEOUT,
+					&user_param->qp_timeout, sizeof(uint8_t));
+		if (rc) {
+			error_message = "Failed to set qp_timeout.";
+			rdma_cm_connect_error(ctx);
+			goto error;
+		}
+	}
+
 	rc = rdma_resolve_route(cma_id, 2000);
 	if (rc) {
 		error_message = "Failed to resolve RDMA CM route.";
@@ -2449,6 +2472,16 @@ int rdma_cm_connection_request_handler(struct pingpong_context *ctx,
 		error_message = \
 			"Failed request UD connection parameters for RDMA CM.";
 		goto error_2;
+	}
+
+	if (user_param->connection_type == RC) {
+		rc = rdma_set_option(ctx->cm_id, RDMA_OPTION_ID,
+					RDMA_OPTION_ID_ACK_TIMEOUT,
+					&user_param->qp_timeout, sizeof(uint8_t));
+		if (rc) {
+			error_message = "Failed to set qp_timeout.";
+			goto error_2;
+		}
 	}
 
 	rc = rdma_accept(ctx->cm_id, &conn_param);

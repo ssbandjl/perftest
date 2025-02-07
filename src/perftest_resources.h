@@ -55,6 +55,9 @@
 #if defined(HAVE_MLX5DV)
 #include <infiniband/mlx5dv.h>
 #endif
+#if defined(HAVE_HNSDV)
+#include <infiniband/hnsdv.h>
+#endif
 #include <rdma/rdma_cma.h>
 #include <stdint.h>
 #if defined(__FreeBSD__)
@@ -175,6 +178,10 @@ struct pingpong_context {
 	struct ibv_comp_channel			*recv_channel;
 	struct ibv_comp_channel			*send_channel;
 	struct ibv_pd				*pd;
+	#ifdef HAVE_TD_API
+	struct ibv_td				*td;
+	struct ibv_pd				*pad;
+	#endif
 	struct ibv_mr				**mr;
 	struct ibv_mr				*null_mr;
 	struct ibv_cq				*send_cq;

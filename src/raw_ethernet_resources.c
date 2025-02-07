@@ -577,8 +577,8 @@ void build_pkt_on_buffer(struct ETH_header* eth_header,
 
 	if(user_param->vlan_en) {
 		struct ETH_vlan_header *p_eth_vlan = (struct ETH_vlan_header *)eth_header;
-		// cppcheck-suppress integerOverflow
-		uint32_t vlan_header = htonl(VLAN_TPID << 16 |
+
+		uint32_t vlan_header = htonl((uint32_t)VLAN_TPID << 16 |
 								((vlan_pcp & 0x7) << 13) | VLAN_VID | VLAN_CFI << 12);;
 
 		memory->copy_buffer_to_buffer(&p_eth_vlan->eth_type, &eth_header->eth_type, sizeof(uint16_t));
@@ -732,9 +732,10 @@ static void fill_ip_common(struct ibv_flow_spec* spec_info,
 			}
 			if (user_param->flow_label) {
 				ipv6_spec->val.flow_label =
-					htonl(user_param->flow_label);
+					htonl(user_param->flow_label[user_param->flow_label[1] % user_param->flow_label[0] + 2]);
 				ipv6_spec->mask.flow_label =
 					htonl(0xfffff);
+				user_param->flow_label[1] = user_param->flow_label[1] + 1;
 			}
 			memcpy((void*)&ipv6_spec->mask.dst_ip, ipv6_mask, 16);
 			memcpy((void*)&ipv6_spec->mask.src_ip, ipv6_mask, 16);

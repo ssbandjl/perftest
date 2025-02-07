@@ -176,6 +176,7 @@
 #define MAX_INLINE_UD (1024)
 #define MIN_EQ_NUM    (0)
 #define MAX_EQ_NUM    (2048)
+#define MIN_SRQ_UD_RX_DEPTH (100)
 
 /* Raw etherent defines */
 #define RAWETH_MIN_MSG_SIZE	(64)
@@ -191,15 +192,15 @@
 #define CYCLES	"cycles"
 #define USEC	"usec"
 /* The format of the results */
-#define RESULT_FMT		" #bytes     #iterations    BW peak[MB/sec]    BW average[MB/sec]   MsgRate[Mpps]"
+#define RESULT_FMT		" #bytes     #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]"
 
-#define RESULT_FMT_PER_PORT	" #bytes     #iterations    BW peak[MB/sec]    BW average[MB/sec]   MsgRate[Mpps]   BW Port1[MB/sec]   MsgRate Port1[Mpps]   BW Port2[MB/sec]   MsgRate Port2[Mpps]"
+#define RESULT_FMT_PER_PORT	" #bytes     #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]   BW Port1[MiB/sec]   MsgRate Port1[Mpps]   BW Port2[MiB/sec]   MsgRate Port2[Mpps]"
 
 #define RESULT_FMT_G	" #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]"
 
 #define RESULT_FMT_G_PER_PORT	" #bytes     #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]   BW Port1[Gb/sec]   MsgRate Port1[Mpps]   BW Port2[Gb/sec]   MsgRate Port2[Mpps]"
 
-#define RESULT_FMT_QOS  " #bytes    #sl      #iterations    BW peak[MB/sec]    BW average[MB/sec]   MsgRate[Mpps]"
+#define RESULT_FMT_QOS  " #bytes    #sl      #iterations    BW peak[MiB/sec]    BW average[MiB/sec]   MsgRate[Mpps]"
 
 #define RESULT_FMT_G_QOS  " #bytes    #sl      #iterations    BW peak[Gb/sec]    BW average[Gb/sec]   MsgRate[Mpps]"
 
@@ -216,7 +217,7 @@
 #define RESULT_FMT_FS_RATE_DUR " #flows		fs_avg_time[usec]    	fps[flow per sec]"
 
 /* Result print format */
-#define REPORT_FMT " %-7lu    %-10" PRIu64 "       %-7.2lf            %-7.2lf		   %-7.6lf"
+#define REPORT_FMT " %-7lu    %-10" PRIu64 "       %-7.2lf            %-7.2lf		     %-7.6lf"
 
 #define REPORT_FMT_JSON "\"MsgSize\": %lu,\n\"n_iterations\": %" PRIu64 ",\n\"BW_peak\": %.2lf,\n\"BW_average\": %.2lf,\n\"MsgRate\": %.6lf"
 
@@ -384,7 +385,8 @@ enum ctx_device {
 	ERDMA			= 29,
 	HNS			= 30,
 	CONNECTX8		= 31,
-  INTEL_GEN2		= 32,
+  	INTEL_GEN2		= 32,
+	CONNECTX9               = 33,
 };
 
 /* Units for rate limiter */
@@ -440,7 +442,8 @@ enum memory_type {
 	MEMORY_CUDA,
 	MEMORY_ROCM,
 	MEMORY_NEURON,
-	MEMORY_HL
+	MEMORY_HL,
+	MEMORY_MLU
 };
 
 struct perftest_parameters {
@@ -523,6 +526,8 @@ struct perftest_parameters {
 	int 				recv_post_list;
 	int				duration;
 	int 				use_srq;
+	int 				no_lock;
+	int 				congest_type;
 	int				use_xrc;
 	int				use_rss;
 	int				srq_exists;
@@ -568,10 +573,12 @@ struct perftest_parameters {
 	int				cuda_device_id;
 	char				*cuda_device_bus_id;
 	int				use_cuda_dmabuf;
+	int				use_data_direct;
 	int				rocm_device_id;
 	int				neuron_core_id;
 	int				use_neuron_dmabuf;
 	char				*hl_device_bus_id;
+	int				mlu_device_id;
 	char				*mmap_file;
 	unsigned long			mmap_offset;
 	/* New test params format pilot. will be used in all flags soon,. */
@@ -599,7 +606,7 @@ struct perftest_parameters {
 	char				*out_json_file_name;
 	struct cpu_util_data 		cpu_util_data;
 	int 				latency_gap;
-	int 				flow_label;
+	int*  				flow_label;
 	int 				retry_count;
 	int 				dont_xchg_versions;
 	int 				ipv6;
@@ -634,6 +641,10 @@ struct perftest_parameters {
 	int 				has_source_ip;
 	int 			ah_allocated;
 	int				use_write_with_imm;
+	int				use_unsolicited_write;
+	int				use_ddp;
+	int				no_ddp;
+	int				connectionless;
 };
 
 struct report_options {

@@ -29,7 +29,7 @@
 # SOFTWARE.
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([perftest],[6.21],[linux-rdma@vger.kernel.org])
+AC_INIT([perftest],[6.24],[linux-rdma@vger.kernel.org])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([m4])
@@ -161,6 +161,22 @@ AC_TRY_LINK([
 AM_CONDITIONAL([HAVE_DCS],[test "x$HAVE_DCS" = "xyes"])
 if [test $HAVE_DCS = yes] && [test $HAVE_MLX5DV = yes]; then
         AC_DEFINE([HAVE_DCS], [1], [Have DCS support])
+fi
+
+AC_TRY_LINK([
+#include <infiniband/mlx5dv.h>],
+	[int x = MLX5DV_CONTEXT_MASK_OOO_RECV_WRS;],[HAVE_OOO_RECV_WRS=yes], [HAVE_OOO_RECV_WRS=no])
+AM_CONDITIONAL([HAVE_OOO_RECV_WRS],[test "x$HAVE_OOO_RECV_WRS" = "xyes"])
+if [test $HAVE_OOO_RECV_WRS = yes] && [test $HAVE_MLX5DV = yes]; then
+	AC_DEFINE([HAVE_OOO_RECV_WRS], [1], [Have DDP support])
+fi
+
+AC_TRY_LINK([
+#include <infiniband/mlx5dv.h>],
+	[int x = MLX5DV_REG_DMABUF_ACCESS_DATA_DIRECT;],[HAVE_DATA_DIRECT=yes], [HAVE_DATA_DIRECT=no])
+AM_CONDITIONAL([HAVE_DATA_DIRECT],[test "x$HAVE_DATA_DIRECT" = "xyes"])
+if [test $HAVE_DATA_DIRECT = yes] && [test $HAVE_MLX5DV = yes]; then
+	AC_DEFINE([HAVE_DATA_DIRECT], [1], [Have Data Direct support])
 fi
 
 AC_TRY_LINK([
@@ -340,6 +356,33 @@ AS_IF([test "x$enable_hl" = xyes], [
 
 AM_CONDITIONAL([HABANALABS], [test x$enable_hl = xyes])
 
+AC_ARG_ENABLE([mlu],
+              [AS_HELP_STRING([--enable-mlu],
+                              [Enable MLU benchmarks])
+              ],
+              [],
+              [enable_mlu=no])
+
+AC_ARG_WITH([mlu],
+            [AS_HELP_STRING([--with-mlu=@<:@MLU installation path@:>@],
+                            [Provide path to MLU installation])
+            ],
+            [AS_CASE([$with_mlu],
+                     [yes|no], [],
+                     [CPPFLAGS="-I$with_mlu/include $CPPFLAGS"
+                      LDFLAGS="-L$with_mlu/lib64 -Wl,-rpath=$with_mlu/lib64 -lcndrv $LDFLAGS"])
+            ])
+
+AS_IF([test "x$enable_mlu" = xyes], [
+       AC_DEFINE([HAVE_MLU], [1], [Enable MLU benchmarks])
+       AC_CHECK_HEADERS([cn_api.h], [],
+                        [AC_MSG_ERROR([could not find cn_api.h in include path])])
+       AC_SEARCH_LIBS([cnMalloc], [cndrv], [],
+                      [AC_MSG_ERROR([could not find library, cndrv])])
+       ])
+
+AM_CONDITIONAL([MLU], [test x$enable_mlu = xyes])
+
 AC_TRY_LINK([#include <infiniband/verbs.h>],
 	[struct ibv_qp_attr *attr; int x = attr->rate_limit;],[HAVE_PACKET_PACING=yes], [HAVE_PACKET_PACING=no])
 AM_CONDITIONAL([HAVE_PACKET_PACING],[test "x$HAVE_PACKET_PACING" = "xyes"])
@@ -366,6 +409,11 @@ if [test $HAVE_IBV_WR_API = yes]; then
 	if [test $HAVE_RDMA_WRITE_SRD = yes]; then
 		AC_DEFINE([HAVE_SRD_WITH_RDMA_WRITE], [1], [Have SRD with RDMA write support])
 	fi
+	AC_TRY_LINK([#include <infiniband/efadv.h>],
+		    [int x = EFADV_DEVICE_ATTR_CAPS_UNSOLICITED_WRITE_RECV;], [HAVE_UNSOLICITED_WRITE_RECV_SRD=yes], [HAVE_UNSOLICITED_WRITE_RECV_SRD=no])
+	if [test $HAVE_UNSOLICITED_WRITE_RECV_SRD = yes]; then
+		AC_DEFINE([HAVE_SRD_WITH_UNSOLICITED_WRITE_RECV], [1], [Have SRD with unsolicited RDMA write with imm. support])
+	fi
 else
 	AC_CHECK_LIB([efa], [efadv_create_driver_qp], [HAVE_SRD=yes], [HAVE_SRD=no])
 fi
@@ -380,6 +428,27 @@ AM_CONDITIONAL([HAVE_MLX5DV_LIB], [test "x$HAVE_MLX5DV_LIB" = "xyes"])
 if [test $HAVE_MLX5DV_LIB = yes] && [test $HAVE_MLX5DV = yes]; then
 	AC_DEFINE([HAVE_MLX5DV], [1], [Have Direct Verbs support])
 	AC_SUBST([LIBMLX5])
+fi
+
+AC_CHECK_LIB([hns], [hnsdv_query_device], [HAVE_HNSDV=yes LIBHNS=-lhns], [HAVE_HNSDV=no])
+AM_CONDITIONAL([HAVE_HNSDV], [test "x$HAVE_HNSDV" = "xyes"])
+if [test $HAVE_HNSDV = yes]; then
+	AC_DEFINE([HAVE_HNSDV], [1], [Have hns Direct Verbs support])
+	AC_SUBST([LIBHNS])
+fi
+
+AC_TRY_LINK([#include <infiniband/verbs.h>],
+	[ibv_cq_ex_to_cq], [HAVE_CQ_EX=yes], [HAVE_CQ_EX=no])
+AM_CONDITIONAL([HAVE_CQ_EX], [test "x$HAVE_CQ_EX" = "xyes"])
+if [test $HAVE_CQ_EX = yes]; then
+	AC_DEFINE([HAVE_CQ_EX], [1], [Have CQ EX API support])
+fi
+
+AC_TRY_LINK([#include <infiniband/verbs.h>],
+	[ibv_alloc_td], [HAVE_TD_API=yes], [HAVE_TD_API=no])
+AM_CONDITIONAL([HAVE_TD_API], [test "x$HAVE_TD_API" = "xyes"])
+if [test $HAVE_TD_API = yes]; then
+	AC_DEFINE([HAVE_TD_API], [1], [Have TD API support])
 fi
 
 CFLAGS="-g -Wall -D_GNU_SOURCE -O3 $CFLAGS"
