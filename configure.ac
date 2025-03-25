@@ -247,14 +247,21 @@ AC_ARG_ENABLE([rocm],
               [],
               [enable_rocm=no])
 
+AC_ARG_ENABLE([rocm_dmabuf],
+              [AS_HELP_STRING([--enable-rocm-dmabuf],
+                              [Enable ROCm DMABUF feature])
+              ],
+              [],
+              [enable_rocm_dmabuf=no])
+
 AC_ARG_WITH([rocm],
             [AS_HELP_STRING([--with-rocm=@<:@ROCm installation path@:>@],
                             [Provide path to ROCm installation])
             ],
             [AS_CASE([$with_rocm],
                      [yes|no], [],
-                     [CPPFLAGS="-I$with_rocm/include $CPPFLAGS"
-                      LDFLAGS="-L$with_rocm/lib64 -Wl,-rpath=$with_rocm/lib64 -L$with_rocm/lib -Wl,-rpath=$with_rocm/lib -lamdhip64 $LDFLAGS"])
+                     [CPPFLAGS="-I$with_rocm/include -I$with_rocm/include/hsa $CPPFLAGS"
+                      LDFLAGS="-L$with_rocm/lib64 -Wl,-rpath=$with_rocm/lib64 -L$with_rocm/lib -Wl,-rpath=$with_rocm/lib -lamdhip64 -lhsa-runtime64 $LDFLAGS"])
             ])
 
 AS_IF([test "x$enable_rocm" = xyes], [
@@ -269,6 +276,18 @@ AS_IF([test "x$enable_rocm" = xyes], [
        ])
 
 AM_CONDITIONAL([ROCM], [test x$enable_rocm = xyes])
+
+AS_IF([test "x$enable_rocm_dmabuf" = xyes], [
+       AS_IF([test "x$HAVE_REG_DMABUF_MR" = "xno"],
+             [AC_MSG_ERROR([rdma-core doesn't support dmabuf mr registration])])
+       AS_IF([test "x$enable_rocm" = "xno"],
+             [AC_MSG_ERROR([rocm not enabled/supported])])
+       AC_CHECK_HEADERS([hsa/hsa_ext_amd.h], [],
+                        [AC_MSG_ERROR([cannot include hsa/hsa_ext_amd.h])])
+       AC_SEARCH_LIBS([hsa_amd_portable_export_dmabuf], [hsa-runtime64], [],
+                      [AC_MSG_ERROR([cannot link with -lhsa-runtime64])])
+       AC_DEFINE([HAVE_ROCM_DMABUF], [1], [Enable ROCm DMABUF feature])
+	   ])
 
 AC_TRY_LINK([
 #include <infiniband/verbs.h>],
@@ -290,8 +309,16 @@ if [test "$CUDA_H_PATH" ]; then
 	if [test "x$HAVE_REG_DMABUF_MR" = "xyes"] && [test "x$HAVE_CUDA_CUMEMGETHANDLEFORADDRESSRANGE" = "xyes"] && [test "x$CUDA_DMA_BUF_PARAMETERS_SUPPORT" = "xyes"]; then
 		AC_DEFINE([HAVE_CUDA_DMABUF], [1], [Enable CUDA DMABUF feature])
 	fi
+	AC_TRY_LINK([
+	#include <$CUDA_H_PATH>],
+	[int x = CU_MEM_RANGE_FLAG_DMA_BUF_MAPPING_TYPE_PCIE;],
+	[CUDA_DMA_BUF_MAPPING_TYPE_PCIE_SUPPORT=yes], [CUDA_DMA_BUF_MAPPING_TYPE_PCIE_SUPPORT=no])
+	if [test "x$CUDA_DMA_BUF_MAPPING_TYPE_PCIE_SUPPORT" = "xyes"] && [test "x$HAVE_REG_DMABUF_MR" = "xyes"]; then
+		AC_DEFINE([HAVE_DMABUF_MAPPING_TYPE_PCIE], [1], [Enable CUDA DMABUF handle mapping via PCIe BAR1])
+	fi
 fi
 AM_CONDITIONAL([CUDA_DMA_BUF_PARAMETERS_SUPPORT],[test "x$CUDA_DMA_BUF_PARAMETERS_SUPPORT" = "xyes"])
+AM_CONDITIONAL([CUDA_DMA_BUF_MAPPING_TYPE_PCIE_SUPPORT],[test "x$CUDA_DMA_BUF_MAPPING_TYPE_PCIE_SUPPORT" = "xyes"])
 
 AM_CONDITIONAL([CUDA], [test "$CUDA_H_PATH"])
 
@@ -338,7 +365,7 @@ AC_ARG_WITH([hl],
 	],
 	[AS_CASE([$with_hl],
 		[yes|no], [],
-		[CPPFLAGS="-I$with_hl/include/habanalabs $CPPFLAGS"
+		[CPPFLAGS="-I$with_hl/include/habanalabs -I/usr/include/drm -I/usr/include/libdrm $CPPFLAGS"
 		LDFLAGS="-L$with_hl/lib/habanalabs -Wl,-rpath=$with_hl/lib/habanalabs $LDFLAGS"])
 	])
 
